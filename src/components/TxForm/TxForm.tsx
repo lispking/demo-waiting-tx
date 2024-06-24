@@ -1,17 +1,21 @@
-import React, { useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import ReactJson, { InteractionProps } from "react-json-view";
 import "./style.scss";
 import {
   SendTransactionRequest,
-  TonConnect,
   useTonConnectUI,
   useTonWallet,
 } from "@tonconnect/ui-react";
-import { Address, beginCell, Cell, storeMessage, Transaction } from "@ton/core";
-import { set } from "zod";
+import {
+  Address,
+  beginCell,
+  Cell,
+  loadMessage,
+  storeMessage,
+  Transaction,
+} from "@ton/core";
 import { useTonClient } from "../../hooks/useTonClient";
-import { TonClient, TonClient4 } from "@ton/ton";
-import { useWaitForTransaction } from "../../hooks/useWaitingTransaction";
+import { TonClient } from "@ton/ton";
 
 // In this example, we are using a predefined smart contract state initialization (`stateInit`)
 // to interact with an "EchoContract". This contract is designed to send the value back to the sender,
@@ -43,6 +47,60 @@ const defaultTx: SendTransactionRequest = {
   ],
 };
 
+interface WaitForTransactionOptions {
+  address: string;
+  hash: string;
+  refetchInterval?: number;
+  refetchLimit?: number;
+}
+
+const waitForTransaction = async (
+  options: WaitForTransactionOptions,
+  client: TonClient
+): Promise<Transaction | null> => {
+  const { hash, refetchInterval = 1000, refetchLimit, address } = options;
+
+  return new Promise((resolve) => {
+    let refetches = 0;
+    const walletAddress = Address.parse(address);
+    const interval = setInterval(async () => {
+      refetches += 1;
+
+      console.log("waiting transaction...");
+      const state = await client.getContractState(walletAddress);
+      if (!state || !state.lastTransaction) {
+        clearInterval(interval);
+        resolve(null);
+        return;
+      }
+      const lastLt = state.lastTransaction.lt;
+      const lastHash = state.lastTransaction.hash;
+      const lastTx = await client.getTransaction(
+        walletAddress,
+        lastLt,
+        lastHash
+      );
+
+      if (lastTx && lastTx.inMessage) {
+        const msgCell = beginCell()
+          .store(storeMessage(lastTx.inMessage))
+          .endCell();
+
+        const inMsgHash = msgCell.hash().toString("base64");
+        console.log("InMsgHash", inMsgHash);
+        if (inMsgHash === hash) {
+          clearInterval(interval);
+          resolve(lastTx);
+        }
+      }
+      if (refetchLimit && refetches >= refetchLimit) {
+        clearInterval(interval);
+        resolve(null);
+      }
+    }, refetchInterval);
+  });
+};
+
 export function TxForm() {
   const [tx, setTx] = useState(defaultTx);
   const [finalizedTx, setFinalizedTx] = useState<Transaction | null>(null);
@@ -54,7 +112,7 @@ export function TxForm() {
 
   const [tonConnectUi] = useTonConnectUI();
 
-  const { waitForTransaction } = useWaitForTransaction(client!!);
+  // const { waitForTransaction } = useWaitForTransaction(client!!);
 
   const onChange = useCallback((value: InteractionProps) => {
     setTx(value.updated_src as SendTransactionRequest);
@@ -82,15 +140,25 @@ export function TxForm() {
               const hash = Cell.fromBase64(result.boc)
                 .hash()
                 .toString("base64");
+
+              const message = loadMessage(
+                Cell.fromBase64(result.boc).asSlice()
+              );
+              console.log("Message:", message.body.hash().toString("hex"));
               setMsgHash(hash);
 
-              const txFinalized = await waitForTransaction({
-                address: tonConnectUi.account?.address ?? "",
-                hash: hash,
-              });
-              setFinalizedTx(txFinalized);
+              if (client) {
+                const txFinalized = await waitForTransaction(
+                  {
+                    address: tonConnectUi.account?.address ?? "",
+                    hash: hash,
+                  },
+                  client
+                );
+                setFinalizedTx(txFinalized);
+              }
             } catch (e) {
-              console.log(e);
+              console.error(e);
             } finally {
               setLoading(false);
             }
