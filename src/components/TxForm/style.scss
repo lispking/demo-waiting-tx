@@ -13,6 +13,10 @@
     font-size: 28px;
   }
 
+  div {
+    color: white;
+  }
+
   > div:nth-child(2) {
     width: 100%;
 
@@ -27,7 +31,7 @@
     border-radius: 15px;
     cursor: pointer;
 
-    background-color: rgba(102,170,238,0.91);
+    background-color: rgba(102, 170, 238, 0.91);
     color: white;
     font-size: 16px;
     line-height: 20px;
