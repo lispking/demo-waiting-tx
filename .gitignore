@@ -23,3 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .ssh
+
+package-lock.json
+pnpm-lock.yaml
+yarn.lock

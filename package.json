@@ -15,6 +15,7 @@
     "@ton/core": "^0.56.3",
     "@ton/crypto": "^3.2.0",
     "@ton/ton": "^13.11.1",
+    "@tonconnect/sdk": "^3.0.5",
     "@tonconnect/ui-react": "2.0.5",
     "boxen": "^5.1.2",
     "buffer": "^6.0.3",
@@ -24,6 +25,7 @@
     "react": "^17.0.0",
     "react-dom": "^17.0.0",
     "react-json-view": "^1.21.3",
+    "tweetnacl": "^1.0.3",
     "zod": "^3.23.8"
   },
   "devDependencies": {
